@@ -1,0 +1,26 @@
+﻿Выдать названия женских лабораторий
+
+
+SELECT ЛАБОРАТОРИЯ WHERE Пол = 'Ж' -> T1
+PROJECT T1 OVER Р/Н -> T2
+JOIN T2 AND АНАЛИЗ OVER Р/Н -> T3
+PROJECT T3 OVER К/Л -> T4
+SELECT ЛАБОРАТОРИЯ WHERE Пол = 'М' -> T5
+PROJECT T5 OVER Р/Н -> T6
+JOIN T6 AND АНАЛИЗ OVER Р/Н -> T7
+PROJECT T7 OVER К/Л -> T8
+MINUS T4 AND T8 -> T9
+JOIN T9 AND ЛАБОРАТОРИЯ OVER К/Л -> T10
+PROJECT T10 OVER Название -> RESULT
+
+RANGE АНАЛИЗ X
+RANGE ПАЦИЕНТ Y
+GET W (ЛАБОРАТОРИЯ.Название):
+	¬∃X (X.К/Л = ЛАБОРАТОРИЯ.К/Л ⋀ ∃Y (Y.Р/Н = X.Р/Н ⋀ Y.Пол = 'М'))
+
+SELECT Название FROM ЛАБОРАТОРИЯ
+WHERE К/Л NOT IN
+	(SELECT К/Л FROM АНАЛИЗ
+	WHERE Р/Н IN
+		(SELECT Р/Н FROM ПАЦИЕНТ
+		WHERE Пол = 'М'))

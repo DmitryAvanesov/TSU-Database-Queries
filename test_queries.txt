@@ -1,0 +1,172 @@
+﻿1.
+
+SELECT ДИАГНОЗ WHERE Т/Д = 'Воспаление лёгких' -> T1
+PROJECT T1 OVER Р/Н -> T2
+JOIN T2 AND ПАЦИЕНТ OVER Р/Н -> T3
+PROJECT T3 OVER Фамилия -> RESULT
+
+RANGE ДИАГНОЗ X
+GET W (ПАЦИЕНТ.Фамилия):
+	∃X (X.Т/Д = 'Воспаление лёгких' ⋀ X.Р/Н = ПАЦИЕНТ.Р/Н)
+
+SELECT Фамилия
+FROM ПАЦИЕНТ, ДИАГНОЗ
+	WHERE ДИАГНОЗ.`Т/Д` = 'Воспаление лёгких' AND ДИАГНОЗ.`Р/Н` = ПАЦИЕНТ.`Р/Н`;
+
+
+
+2.
+
+SELECT ДИАГНОЗ WHERE Т/Д = 'Воспаление лёгких' -> T1
+PROJECT T1 OVER Р/Н -> T2
+PROJECT РАЗМЕЩЕНИЕ OVER Р/Н -> T3
+INTERSECT T2 AND T3 -> T4
+JOIN T4 AND ПАЦИЕНТ OVER Р/Н -> T5
+PROJECT T5 OVER Фамилия -> RESULT
+
+RANGE ДИАГНОЗ X
+RANGE РАЗМЕЩЕНИЕ Y
+GET W (ПАЦИЕНТ.Фамилия):
+	∃X (X.Т/Д = 'Воспаление лёгких' ⋀ X.Р/Н = ПАЦИЕНТ.Р/Н ⋀ ∃Y (Y.Р/Н = X.Р/Н))
+
+SELECT Фамилия
+FROM ПАЦИЕНТ, ДИАГНОЗ, РАЗМЕЩЕНИЕ
+	WHERE ДИАГНОЗ.`Т/Д` = 'Воспаление лёгких' AND ДИАГНОЗ.`Р/Н` = ПАЦИЕНТ.`Р/Н` AND РАЗМЕЩЕНИЕ.`Р/Н` = ПАЦИЕНТ.`Р/Н`;
+
+
+
+3А.
+
+SELECT АНАЛИЗ WHERE Т/А = 'Зондирование печени' -> T1
+PROJECT T1 OVER Р/Н -> T2
+JOIN T2 AND ДИАГНОЗ OVER Р/Н -> T3
+PROJECT T3 OVER Т/Д -> RESULT1
+
+RANGE АНАЛИЗ X
+GET W1 (ДИАГНОЗ.Т/Д):
+	∃X (X.Т/А = 'Зондирование печени' ⋀ X.Р/Н = ДИАГНОЗ.Р/Н)
+
+SELECT DISTINCT `Т/Д`
+FROM ДИАГНОЗ, АНАЛИЗ
+	WHERE ДИАГНОЗ.`Р/Н` IN
+		(SELECT АНАЛИЗ.`Р/Н`
+		FROM АНАЛИЗ
+			WHERE `Т/А` = 'Зондирование печени');
+
+
+3Б.
+
+PROJECT АНАЛИЗ OVER Р/Н -> T4
+MINUS T4 AND T2 -> T5
+JOIN T5 AND ДИАГНОЗ OVER Р/Н -> T6
+PROJECT T6 OVER Т/Д -> T7
+MINUS RESULT1 AND T7 -> RESULT2
+
+RANGE АНАЛИЗ X
+RANGE ДИАГНОЗ Y
+GET W2 (W1.Т/Д):
+	∀Y (Y.Т/Д ≠ W1.Т/Д ⋁ ∃X (X.Р/Н = Y.Р/Н ⋀ X.Т/А = 'Зондирование печени'))
+
+SELECT DISTINCT `Т/Д`
+FROM ДИАГНОЗ, АНАЛИЗ
+	WHERE ДИАГНОЗ.`Р/Н` IN
+		(SELECT АНАЛИЗ.`Р/Н`
+		FROM АНАЛИЗ
+			WHERE `Т/А` = 'Зондирование печени')
+	AND ДИАГНОЗ.`Р/Н` NOT IN
+		(SELECT АНАЛИЗ.`Р/Н`
+		FROM АНАЛИЗ
+			WHERE АНАЛИЗ.`Р/Н` NOT IN
+			(SELECT АНАЛИЗ.`Р/Н`
+			FROM АНАЛИЗ
+				WHERE `Т/А` = 'Зондирование печени'));
+
+
+
+4.
+
+SELECT АНАЛИЗ WHERE Т/А = 'Анализ крови' -> T1
+PROJECT T1 OVER Р/Н -> T2
+JOIN T2 AND ВРАЧ-ПАЦИЕНТ OVER Р/Н -> T3
+MINUS ВРАЧ-ПАЦИЕНТ AND T3 -> T4
+PROJECT ВРАЧ-ПАЦИЕНТ OVER К/В -> T5
+PROJECT T4 OVER К/В -> T6
+MINUS T5 AND T6 -> T7
+JOIN T7 AND ВРАЧ OVER К/В -> T8
+PROJECT T8 OVER Фамилия -> RESULT
+
+RANGE АНАЛИЗ X
+RANGE ВРАЧ-ПАЦИЕНТ Y
+GET W (ВРАЧ.Фамилия):
+	∀Y (Y.К/В ≠ ВРАЧ.К/В ⋁ ∃X (X.Р/Н = Y.Р/Н ⋀ X.Т/А = 'Анализ крови'))
+
+SELECT DISTINCT Фамилия
+FROM ВРАЧ, `ВРАЧ-ПАЦИЕНТ`, АНАЛИЗ
+	WHERE ВРАЧ.`К/В` NOT IN
+	(SELECT `ВРАЧ-ПАЦИЕНТ`.`К/В`
+	FROM `ВРАЧ-ПАЦИЕНТ`
+		WHERE `Р/Н` NOT IN
+		(SELECT `Р/Н`
+		FROM АНАЛИЗ
+			WHERE `Т/А` = 'Анализ крови'));
+
+
+
+5.
+
+JOIN ВРАЧ-ПАЦИЕНТ AND РАЗМЕЩЕНИЕ OVER Р/Н -> T1
+PROJECT T1 OVER К/В, К/Б -> T2
+PROJECT ВРАЧ OVER К/В, К/Б -> T3
+MINUS T2 AND T3 -> T4
+JOIN T4 AND ВРАЧ OVER К/В -> T5
+PROJECT T5 OVER Фамилия -> RESULT
+
+RANGE ВРАЧ-ПАЦИЕНТ X
+RANGE РАЗМЕЩЕНИЕ Y
+GET W (ВРАЧ.Фамилия):
+	∃X (X.К/В = ВРАЧ.К/В ⋀ ∃Y (Y.Р/Н = X.Р/Н ⋀ Y.К/Б ≠ ВРАЧ.К/Б))
+
+SELECT Фамилия
+FROM ВРАЧ, `ВРАЧ-ПАЦИЕНТ`, РАЗМЕЩЕНИЕ
+	WHERE `ВРАЧ-ПАЦИЕНТ`.`Р/Н` = РАЗМЕЩЕНИЕ.`Р/Н` AND ВРАЧ.`К/В` = `ВРАЧ-ПАЦИЕНТ`.`К/В` AND ВРАЧ.`К/Б` <> РАЗМЕЩЕНИЕ.`К/Б`;
+
+
+
+6.
+
+...
+
+...
+
+SELECT Фамилия
+FROM ПАЦИЕНТ
+	WHERE `Р/Н` IN
+	(SELECT `Р/Н`, `К/Б`, `Н/П`
+	FROM РАЗМЕЩЕНИЕ
+		GROUP BY `К/Б`, `Н/П`
+		HAVING COUNT(*) = 1);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
